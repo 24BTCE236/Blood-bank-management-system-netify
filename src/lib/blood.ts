@@ -26,6 +26,7 @@ export type Donor = {
   id: string;
   name: string;
   age: number;
+  address?: string;
   bloodGroup: BloodGroup;
   weight: number;
   lastDonationDate: string;

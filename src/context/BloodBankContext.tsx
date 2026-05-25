@@ -22,6 +22,7 @@ type BloodBankContextValue = BloodBankState & {
   signInFounder: (email: string, password: string) => Promise<{ ok: boolean; message: string }>;
   signOutFounder: () => void;
   registerDonor: (donor: Omit<Donor, 'id' | 'createdAt' | 'active'>) => { ok: boolean; message: string };
+  publicRegisterDonor: (donor: Omit<Donor, 'id' | 'createdAt' | 'active'>) => { ok: boolean; message: string };
   createRequest: (request: Omit<BloodRequest, 'id' | 'createdAt' | 'status' | 'matchedDonorIds'>) => { ok: boolean; message: string };
   approveRequest: (requestId: string) => { ok: boolean; message: string };
   getCompatibleDonors: (requestGroup: BloodGroup) => Donor[];
@@ -263,6 +264,45 @@ export const BloodBankProvider = ({ children }: { children: React.ReactNode }) =
     return { ok: true, message: 'Donor registered and inventory updated.' };
   };
 
+  const publicRegisterDonor: BloodBankContextValue['publicRegisterDonor'] = (donor) => {
+    // Allow public donor registration without founder sign-in
+    const ageValid = donor.age >= 18 && donor.age <= 65;
+    const weightValid = donor.weight >= 50;
+    const contactValid = donor.contact.trim().length >= 8;
+    const lastDonationValid = !Number.isNaN(Date.parse(donor.lastDonationDate));
+    const medicalClearance = donor.medicalEligibility.length > 0;
+
+    if (!ageValid || !weightValid || !contactValid || !lastDonationValid || !medicalClearance) {
+      return { ok: false, message: 'Please complete all donor validations before submission.' };
+    }
+
+    const id = `donor-${crypto.randomUUID()}`;
+    setState((current) => {
+      const inventory = { ...current.inventory };
+      inventory[donor.bloodGroup] = {
+        ...inventory[donor.bloodGroup],
+        liters: clampLiters(inventory[donor.bloodGroup].liters + bloodBagSizeLiters, inventory[donor.bloodGroup].capacity),
+        updatedAt: new Date().toISOString(),
+      };
+
+      return {
+        ...current,
+        donors: [
+          {
+            ...donor,
+            id,
+            active: true,
+            createdAt: new Date().toISOString(),
+          },
+          ...current.donors,
+        ],
+        inventory,
+      };
+    });
+
+    return { ok: true, message: 'Thank you — donor registered and inventory updated.' };
+  };
+
   const createRequest: BloodBankContextValue['createRequest'] = (request) => {
     if (!canLeadOperations) {
       return { ok: false, message: 'Founder sign-in required to lead operations.' };
@@ -389,6 +429,7 @@ export const BloodBankProvider = ({ children }: { children: React.ReactNode }) =
       signInFounder,
       signOutFounder,
       registerDonor,
+      publicRegisterDonor,
       createRequest,
       approveRequest,
       addInventory,

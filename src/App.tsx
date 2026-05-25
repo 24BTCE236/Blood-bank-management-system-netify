@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useState, type FormEvent } from 'react';
 import {
   Activity,
   ArrowRight,
@@ -29,6 +29,8 @@ import { useBloodBank } from './context/BloodBankContext';
 import CounterMetric from './components/CounterMetric';
 import FoundersManager from './components/FoundersManager';
 import FounderDashboard from './components/FounderDashboard';
+import DonorPublic from './components/DonorPublic';
+import AddDonor from './components/AddDonor';
 import {
   BloodGroup,
   bloodGroups,
@@ -45,6 +47,7 @@ import { pathToSection, sectionToPath, type DashboardSection } from './lib/navig
 type DonorFormState = {
   name: string;
   age: string;
+  address: string;
   bloodGroup: BloodGroup;
   weight: string;
   lastDonationDate: string;
@@ -80,6 +83,7 @@ const navItems: Array<{ id: DashboardSection; label: string; icon: LucideIcon }>
 const initialDonorForm = (): DonorFormState => ({
   name: '',
   age: '',
+  address: '',
   bloodGroup: 'O+',
   weight: '',
   lastDonationDate: '',
@@ -123,6 +127,7 @@ const validateDonorForm = (form: DonorFormState) => {
   if (!Number.isFinite(weight) || weight < 50) errors.weight = 'Weight must be at least 50 kg.';
   if (!form.lastDonationDate) errors.lastDonationDate = 'Last donation date is required.';
   if (!form.contact.trim() || form.contact.trim().length < 8) errors.contact = 'Enter a valid contact number.';
+  if (!form.address.trim()) errors.address = 'Address is required.';
   if (form.medicalEligibility.length < 3) errors.medicalEligibility = 'Select at least 3 eligibility checks.';
 
   const daysSinceDonation = form.lastDonationDate ? (Date.now() - Date.parse(form.lastDonationDate)) / (1000 * 60 * 60 * 24) : 0;
@@ -162,6 +167,7 @@ const App = () => {
     signInFounder,
     signOutFounder,
     registerDonor,
+    publicRegisterDonor,
     createRequest,
     approveRequest,
     getCompatibleDonors,
@@ -265,23 +271,53 @@ const App = () => {
     setMobileNavOpen(false);
   };
 
-  const handleDonorSubmit = () => {
-    const errors = validateDonorForm(donorForm);
+  const handleDonorSubmit = (event?: FormEvent<HTMLFormElement>) => {
+    event?.preventDefault();
+    // Merge any values that may have been filled by browser autofill or direct DOM edits
+    const dom = typeof document !== 'undefined' ? {
+      name: (document.querySelector('input[aria-label="Donor name"]') as HTMLInputElement | null)?.value,
+      age: (document.querySelector('input[aria-label="Donor age"]') as HTMLInputElement | null)?.value,
+      address: (document.querySelector('input[aria-label="Donor address"]') as HTMLInputElement | null)?.value,
+      bloodGroup: (document.querySelector('select[aria-label="Donor blood group"]') as HTMLSelectElement | null)?.value,
+      weight: (document.querySelector('input[aria-label="Donor weight"]') as HTMLInputElement | null)?.value,
+      lastDonationDate: (document.querySelector('input[aria-label="Last donation date"]') as HTMLInputElement | null)?.value,
+      contact: (document.querySelector('input[aria-label="Donor contact"]') as HTMLInputElement | null)?.value,
+      medicalEligibility: Array.from(document.querySelectorAll('input[type="checkbox"]')).filter((c: any) => c.checked).map((c: any) => c.nextSibling?.textContent?.trim() ?? c.parentElement?.textContent?.trim() ?? ''),
+    } : {} as any;
+
+    const mergedForm = {
+      ...donorForm,
+      name: donorForm.name || dom.name || '',
+      age: donorForm.age || dom.age || '',
+      address: donorForm.address || dom.address || '',
+      bloodGroup: donorForm.bloodGroup || dom.bloodGroup || 'O+',
+      weight: donorForm.weight || dom.weight || '',
+      lastDonationDate: donorForm.lastDonationDate || dom.lastDonationDate || '',
+      contact: donorForm.contact || dom.contact || '',
+      medicalEligibility: donorForm.medicalEligibility.length > 0 ? donorForm.medicalEligibility : (dom.medicalEligibility || []),
+    };
+
+    const errors = validateDonorForm(mergedForm);
     setDonorErrors(errors);
     if (Object.keys(errors).length > 0) {
       setToast({ type: 'error', message: 'Fix the donor form validations before submitting.' });
       return;
     }
 
-    const response = registerDonor({
-      name: donorForm.name.trim(),
-      age: Number(donorForm.age),
-      bloodGroup: donorForm.bloodGroup,
-      weight: Number(donorForm.weight),
-      lastDonationDate: donorForm.lastDonationDate,
-      contact: donorForm.contact.trim(),
-      medicalEligibility: donorForm.medicalEligibility,
-    });
+    const payload = {
+      name: mergedForm.name.trim(),
+      age: Number(mergedForm.age),
+      bloodGroup: mergedForm.bloodGroup,
+      weight: Number(mergedForm.weight),
+      lastDonationDate: mergedForm.lastDonationDate,
+      contact: mergedForm.contact.trim(),
+      address: mergedForm.address.trim(),
+      medicalEligibility: mergedForm.medicalEligibility,
+    } as const;
+
+    const response = activeFounder
+      ? registerDonor(payload)
+      : publicRegisterDonor(payload);
 
     if (!response.ok) {
       setToast({ type: 'error', message: response.message });
@@ -295,7 +331,8 @@ const App = () => {
     goToSection('donors');
   };
 
-  const handleRequestSubmit = () => {
+  const handleRequestSubmit = (event?: FormEvent<HTMLFormElement>) => {
+    event?.preventDefault();
     const errors = validateRequestForm(requestForm);
     setRequestErrors(errors);
     if (Object.keys(errors).length > 0) {
@@ -345,18 +382,48 @@ const App = () => {
     });
   };
 
+  // Use DOM fallbacks so browser autofill or direct DOM edits are respected when deciding step advancement
+  const domFallback = typeof document !== 'undefined' ? {
+    name: (document.querySelector('input[aria-label="Donor name"]') as HTMLInputElement | null)?.value,
+    age: (document.querySelector('input[aria-label="Donor age"]') as HTMLInputElement | null)?.value,
+    weight: (document.querySelector('input[aria-label="Donor weight"]') as HTMLInputElement | null)?.value,
+    bloodGroup: (document.querySelector('select[aria-label="Donor blood group"]') as HTMLSelectElement | null)?.value,
+    lastDonationDate: (document.querySelector('input[aria-label="Last donation date"]') as HTMLInputElement | null)?.value,
+    contact: (document.querySelector('input[aria-label="Donor contact"]') as HTMLInputElement | null)?.value,
+    address: (document.querySelector('input[aria-label="Donor address"]') as HTMLInputElement | null)?.value,
+    medicalEligibility: Array.from(document.querySelectorAll('input[type="checkbox"]')).filter((c: any) => c.checked).map((c: any) => c.nextSibling?.textContent?.trim() ?? c.parentElement?.textContent?.trim() ?? ''),
+  } : {} as any;
+
   const canAdvanceDonorStep = donorStep === 0
-    ? Boolean(donorForm.name && donorForm.age && donorForm.weight && donorForm.bloodGroup)
+    ? Boolean((donorForm.name || domFallback.name) && (donorForm.age || domFallback.age) && (donorForm.weight || domFallback.weight) && (donorForm.bloodGroup || domFallback.bloodGroup))
     : donorStep === 1
-      ? Boolean(donorForm.lastDonationDate && donorForm.contact)
-      : donorForm.medicalEligibility.length >= 3;
+      ? Boolean((donorForm.lastDonationDate || domFallback.lastDonationDate) && (donorForm.contact || domFallback.contact))
+      : (donorForm.medicalEligibility.length >= 3 || (domFallback.medicalEligibility || []).length >= 3);
+
+  const advanceDonorStep = () => {
+    // sync DOM values into React state before advancing to the next step
+    const dom = domFallback;
+    setDonorForm((current) => ({
+      ...current,
+      name: current.name || dom.name || current.name,
+      age: current.age || dom.age || current.age,
+      weight: current.weight || dom.weight || current.weight,
+      bloodGroup: (current.bloodGroup || dom.bloodGroup) as BloodGroup,
+      lastDonationDate: current.lastDonationDate || dom.lastDonationDate || current.lastDonationDate,
+      contact: current.contact || dom.contact || current.contact,
+      address: current.address || dom.address || current.address,
+      medicalEligibility: current.medicalEligibility.length > 0 ? current.medicalEligibility : (dom.medicalEligibility || []),
+    }));
+    setDonorStep((value) => Math.min(2, value + 1));
+  };
 
   const stepTitles = ['Identity', 'Health', 'Eligibility'];
   const activeDonorCount = activeDonors;
 
   const themeToggleLabel = theme === 'dark' ? 'Activate light mode' : 'Activate dark mode';
 
-  const handleFounderSignIn = async () => {
+  const handleFounderSignIn = async (event?: FormEvent<HTMLFormElement>) => {
+    event?.preventDefault();
     setFounderSignInLoading(true);
     // Fallback to read DOM inputs directly (handles browser autofill or stale React state)
     const emailInput = document.querySelector('input[aria-label="Founder email"]') as HTMLInputElement | null;
@@ -377,6 +444,54 @@ const App = () => {
     navigate('/founder-dashboard', { replace: true });
   };
 
+  // Developer helper: expose an auto-submit function for testing (removed after component unmount)
+  useEffect(() => {
+    (window as any).__autoSubmitDonor = async () => {
+      try {
+        const dom = {
+          name: (document.querySelector('input[aria-label="Donor name"]') as HTMLInputElement | null)?.value || donorForm.name,
+          age: (document.querySelector('input[aria-label="Donor age"]') as HTMLInputElement | null)?.value || donorForm.age,
+          weight: (document.querySelector('input[aria-label="Donor weight"]') as HTMLInputElement | null)?.value || donorForm.weight,
+          bloodGroup: (document.querySelector('select[aria-label="Donor blood group"]') as HTMLSelectElement | null)?.value || donorForm.bloodGroup,
+          lastDonationDate: (document.querySelector('input[aria-label="Last donation date"]') as HTMLInputElement | null)?.value || donorForm.lastDonationDate,
+          contact: (document.querySelector('input[aria-label="Donor contact"]') as HTMLInputElement | null)?.value || donorForm.contact,
+          address: (document.querySelector('input[aria-label="Donor address"]') as HTMLInputElement | null)?.value || donorForm.address,
+          medicalEligibility: Array.from(document.querySelectorAll('input[type="checkbox"]')).filter((c: any) => c.checked).map((c: any) => c.nextSibling?.textContent?.trim() ?? c.parentElement?.textContent?.trim() ?? ''),
+        };
+
+        const merged = {
+          ...donorForm,
+          name: dom.name || donorForm.name,
+          age: dom.age || donorForm.age,
+          weight: dom.weight || donorForm.weight,
+          bloodGroup: dom.bloodGroup || donorForm.bloodGroup,
+          lastDonationDate: dom.lastDonationDate || donorForm.lastDonationDate,
+          contact: dom.contact || donorForm.contact,
+          address: dom.address || donorForm.address,
+          medicalEligibility: donorForm.medicalEligibility.length > 0 ? donorForm.medicalEligibility : (dom.medicalEligibility || []),
+        };
+
+        const payload = {
+          name: merged.name.trim(),
+          age: Number(merged.age),
+          bloodGroup: merged.bloodGroup,
+          weight: Number(merged.weight),
+          lastDonationDate: merged.lastDonationDate,
+          contact: merged.contact.trim(),
+          address: merged.address.trim(),
+          medicalEligibility: merged.medicalEligibility,
+        } as const;
+
+        const response = activeFounder ? registerDonor(payload) : publicRegisterDonor(payload);
+        return response;
+      } catch (e) {
+        return { ok: false, message: String(e) };
+      }
+    };
+
+    return () => { delete (window as any).__autoSubmitDonor; };
+  }, [donorForm, registerDonor, publicRegisterDonor, activeFounder]);
+
   const handleFounderSignOut = () => {
     signOutFounder();
     setToast({ type: 'success', message: 'Founder access signed out.' });
@@ -391,6 +506,16 @@ const App = () => {
         <FounderDashboard />
       </div>
     );
+  }
+
+  // Founder-only add donor page
+  if (location.pathname === '/donors/add') {
+    return <AddDonor />;
+  }
+
+  // Public donor registration page (no founder login required)
+  if (location.pathname === '/donate') {
+    return <DonorPublic />;
   }
 
   return (
@@ -488,6 +613,14 @@ const App = () => {
                   {theme === 'dark' ? <SunMedium className="h-4 w-4" /> : <MoonStar className="h-4 w-4" />}
                   {theme === 'dark' ? 'Light mode' : 'Dark mode'}
                 </button>
+                <button className="premium-button-secondary" onClick={() => navigate('/donate')}>
+                  Donate
+                </button>
+                {activeFounder ? (
+                  <button className="premium-button-secondary" onClick={() => navigate('/donors/add')}>
+                    Add Donor
+                  </button>
+                ) : null}
                 <button className="premium-button-secondary" onClick={handleFounderSignOut}>
                   Logout
                 </button>
@@ -654,7 +787,7 @@ const App = () => {
                         </button>
                       </div>
                     ) : (
-                      <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end">
+                      <form className="grid gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end" onSubmit={handleFounderSignIn}>
                         <div>
                           <label className="mb-2 block text-xs uppercase tracking-[0.25em] text-slate-400">Founder email</label>
                           <input
@@ -677,10 +810,10 @@ const App = () => {
                             placeholder="Enter founder password"
                           />
                         </div>
-                        <button className="premium-button" onClick={handleFounderSignIn} disabled={founderSignInLoading}>
+                        <button type="submit" className="premium-button" disabled={founderSignInLoading}>
                           {founderSignInLoading ? 'Unlocking...' : 'Unlock access'}
                         </button>
-                      </div>
+                      </form>
                     )}
                     <div className="mt-3 text-xs leading-6 text-slate-400">
                       Founder sign-in unlocks donor registration, request posting, and dispatch approvals. Seeded demo accounts use the bloodbank.local emails shown on each profile card.
@@ -884,7 +1017,7 @@ const App = () => {
 
               {activeView === 'donors' ? (
                 <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-                  <div className="glass-panel rounded-[2rem] p-6 lg:p-8">
+                  <form className="glass-panel rounded-[2rem] p-6 lg:p-8" onSubmit={handleDonorSubmit}>
                     <div className="mb-6 flex items-center justify-between">
                       <div>
                         <div className="text-sm font-medium text-slate-200">Register a new donor</div>
@@ -894,7 +1027,11 @@ const App = () => {
                     </div>
 
                     <div className="mb-4 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs leading-6 text-slate-300">
-                      Founder sign-in is required before donor registration can be submitted.
+                      {activeFounder ? (
+                        'You are signed in as a founder — registrations submitted here are founder-led.'
+                      ) : (
+                        'Public registration enabled — anyone can register as a donor. Founder sign-in is optional.'
+                      )}
                     </div>
 
                     <div className="mb-6 flex gap-2">
@@ -960,6 +1097,11 @@ const App = () => {
                               <input aria-label="Donor contact" className="glass-input" value={donorForm.contact} onChange={(event) => setDonorForm((current) => ({ ...current, contact: event.target.value }))} placeholder="Phone or WhatsApp number" />
                               {donorErrors.contact ? <p className="mt-2 text-xs text-rose-300">{donorErrors.contact}</p> : null}
                             </div>
+                            <div>
+                              <label className="mb-2 block text-xs uppercase tracking-[0.25em] text-slate-400">Address</label>
+                              <input aria-label="Donor address" className="glass-input" value={donorForm.address} onChange={(event) => setDonorForm((current) => ({ ...current, address: event.target.value }))} placeholder="City, ward, or full address" />
+                              {donorErrors.address ? <p className="mt-2 text-xs text-rose-300">{donorErrors.address}</p> : null}
+                            </div>
                             <div className="rounded-3xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
                               Eligibility window enforces a 90-day donation cooldown before the donor can be re-used.
                             </div>
@@ -1011,6 +1153,7 @@ const App = () => {
 
                     <div className="mt-6 flex flex-wrap gap-3">
                       <button
+                        type="button"
                         className="premium-button-secondary"
                         onClick={() => setDonorStep((value) => Math.max(0, value - 1))}
                         disabled={donorStep === 0}
@@ -1019,21 +1162,37 @@ const App = () => {
                       </button>
                       {donorStep < 2 ? (
                         <button
+                          type="button"
                           className="premium-button"
                           disabled={!canAdvanceDonorStep}
-                          onClick={() => setDonorStep((value) => Math.min(2, value + 1))}
+                          onClick={advanceDonorStep}
                         >
                           Next
                         </button>
                       ) : (
-                        <button className={`premium-button ${!activeFounder ? 'cursor-not-allowed opacity-60' : ''}`} onClick={handleDonorSubmit} disabled={!activeFounder}>
+                        <button type="submit" className="premium-button">
                           Register donor
                         </button>
                       )}
+                      <button
+                        type="button"
+                        className="soft-chip"
+                        onClick={async () => {
+                          const fn = (window as any).__autoSubmitDonor;
+                          if (typeof fn !== 'function') {
+                            setToast({ type: 'error', message: 'Dev helper not available' });
+                            return;
+                          }
+                          const res = await fn();
+                          setToast({ type: res?.ok ? 'success' : 'error', message: res?.message ?? (res?.ok ? 'Auto-submitted' : 'Auto-submit failed') });
+                        }}
+                      >
+                        Auto-fill & submit (dev)
+                      </button>
                     </div>
-                  </div>
+                  </form>
 
-                  <div className="glass-panel rounded-[2rem] p-6 lg:p-8">
+                  <form className="glass-panel rounded-[2rem] p-6 lg:p-8" onSubmit={handleRequestSubmit}>
                     <div className="mb-5 flex items-center justify-between gap-4">
                       <div>
                         <div className="text-sm font-medium text-slate-200">Active donors</div>
@@ -1064,6 +1223,7 @@ const App = () => {
                           <tr>
                             <th className="px-4 py-3">Donor</th>
                             <th className="px-4 py-3">Blood</th>
+                            <th className="px-4 py-3">Address</th>
                             <th className="px-4 py-3">Last donation</th>
                             <th className="px-4 py-3">Status</th>
                           </tr>
@@ -1076,6 +1236,7 @@ const App = () => {
                                 <div className="text-xs text-slate-400">{donor.contact}</div>
                               </td>
                               <td className="px-4 py-4 text-slate-200">{donor.bloodGroup}</td>
+                              <td className="px-4 py-4 text-slate-200">{donor.address ?? '-'}</td>
                               <td className="px-4 py-4 text-slate-200">{donor.lastDonationDate}</td>
                               <td className="px-4 py-4">
                                 <span className="soft-chip">
@@ -1106,21 +1267,22 @@ const App = () => {
                             </div>
                             <span className="soft-chip">{donor.bloodGroup}</span>
                           </div>
-                          <div className="mt-3 grid gap-2 text-sm text-slate-300 sm:grid-cols-2">
+                            <div className="mt-3 grid gap-2 text-sm text-slate-300 sm:grid-cols-2">
                             <div>Age: {donor.age}</div>
                             <div>Weight: {donor.weight} kg</div>
-                            <div className="sm:col-span-2">Last donation: {donor.lastDonationDate}</div>
+                            <div>Last donation: {donor.lastDonationDate}</div>
+                            <div className="sm:col-span-2">Address: {donor.address ?? '-'}</div>
                           </div>
                         </div>
                       ))}
                     </div>
-                  </div>
+                  </form>
                 </section>
               ) : null}
 
               {activeView === 'requests' ? (
                 <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-                  <div className="glass-panel rounded-[2rem] p-6 lg:p-8">
+                  <form className="glass-panel rounded-[2rem] p-6 lg:p-8" onSubmit={handleRequestSubmit}>
                     <div className="mb-6 flex items-center justify-between gap-4">
                       <div>
                         <div className="text-sm font-medium text-slate-200">Live blood request portal</div>
@@ -1180,11 +1342,11 @@ const App = () => {
                         <textarea className="glass-input min-h-28 resize-none" value={requestForm.note} onChange={(event) => setRequestForm((current) => ({ ...current, note: event.target.value }))} placeholder="Add urgency, case notes, and timing requirements" />
                         {requestErrors.note ? <p className="mt-2 text-xs text-rose-300">{requestErrors.note}</p> : null}
                       </div>
-                      <button className={`premium-button w-full ${!activeFounder ? 'cursor-not-allowed opacity-60' : ''}`} onClick={handleRequestSubmit} disabled={!activeFounder}>
+                      <button type="submit" className={`premium-button w-full ${!activeFounder ? 'cursor-not-allowed opacity-60' : ''}`} disabled={!activeFounder}>
                         Post blood request
                       </button>
                     </div>
-                  </div>
+                  </form>
 
                   <div className="glass-panel rounded-[2rem] p-6 lg:p-8">
                     <div className="mb-6 flex items-center justify-between gap-4">
