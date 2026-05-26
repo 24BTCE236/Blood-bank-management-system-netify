@@ -29,6 +29,7 @@ const AddressWithMap: React.FC<{ donors: Donor[]; height?: number }> = ({ donors
   const [processed, setProcessed] = useState(0);
   const [geocodedCount, setGeocodedCount] = useState(0);
   const ctx = useBloodBank();
+  const mapHeightClass = height >= 500 ? 'h-[520px]' : 'h-[420px]';
 
   useEffect(() => {
     if (!mapRef.current) return;
@@ -167,7 +168,7 @@ const AddressWithMap: React.FC<{ donors: Donor[]; height?: number }> = ({ donors
   return (
     <>
       <div className="relative">
-        <div ref={mapRef} style={{ width: '100%', height, borderRadius: 12, overflow: 'hidden' }} />
+        <div ref={mapRef} className={`donor-map-canvas w-full overflow-hidden rounded-2xl ${mapHeightClass}`} />
 
         <div className="absolute left-4 top-4 z-40 w-80 rounded-xl bg-white/6 backdrop-blur-md p-2">
           <div className="flex items-center justify-between gap-3">
@@ -187,16 +188,24 @@ const AddressWithMap: React.FC<{ donors: Donor[]; height?: number }> = ({ donors
             </div>
           </div>
 
-          <div className="mt-2 h-2 w-full rounded-full bg-white/10 overflow-hidden">
-            <div className="h-full bg-gradient-to-r from-rose-500 via-rose-400 to-amber-400 transition-all" style={{ width: `${Math.round((processed / Math.max(1, donors.length)) * 100)}%` }} />
+          <div className="mt-2 grid grid-cols-[repeat(20,minmax(0,1fr))] gap-1">
+            {Array.from({ length: 20 }).map((_, index) => {
+              const filled = index < Math.ceil((processed / Math.max(1, donors.length)) * 20);
+              return (
+                <span
+                  key={index}
+                  className={`h-2 rounded-full transition-colors ${filled ? 'bg-gradient-to-r from-rose-500 via-rose-400 to-amber-400' : 'bg-white/10'}`}
+                />
+              );
+            })}
           </div>
         </div>
       </div>
       {selected ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setSelected(null)} />
-          <div className="relative z-10 w-[92%] max-w-3xl rounded-2xl bg-white p-6 text-slate-900 shadow-2xl">
-            <div className="flex items-start justify-between gap-4">
+          <div className="relative z-10 w-[92%] max-w-3xl max-h-[88vh] overflow-y-auto rounded-2xl bg-white p-6 text-slate-900 shadow-2xl">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 rounded-lg bg-gradient-to-br from-rose-500 to-amber-400 flex items-center justify-center text-white font-bold text-lg">{selected.name.split(' ').map(n=>n[0]).slice(0,2).join('')}</div>
                 <div>
@@ -205,22 +214,24 @@ const AddressWithMap: React.FC<{ donors: Donor[]; height?: number }> = ({ donors
                   <div className="text-xs text-slate-400">Last donation: {selected.lastDonationDate ?? 'N/A'}</div>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <button className="premium-button" onClick={() => setSelected(null)}>Allow donation</button>
                 <button className="premium-button-secondary" onClick={() => setSelected(null)}>Edit</button>
               </div>
             </div>
             <div className="mt-4 text-sm text-slate-700">{selected.address}</div>
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div style={{ height: 240, borderRadius: 8, overflow: 'hidden' }} id="modal-map" />
-              <div className="p-4 bg-white/5 rounded-lg">
-                <h4 className="text-sm font-semibold text-white">Medical eligibility</h4>
-                <ul className="mt-2 text-sm text-slate-300 space-y-1">
+            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="donor-modal-map h-[240px] overflow-hidden rounded-xl border border-slate-200 bg-slate-50" id="modal-map" />
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <h4 className="text-sm font-semibold text-slate-900">Medical eligibility</h4>
+                <ul className="mt-2 flex flex-wrap gap-2 text-sm">
                   {(selected.medicalEligibility ?? []).map((m, i) => (
-                    <li key={i} className="soft-chip">{m}</li>
+                    <li key={i} className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-medium text-rose-700">
+                      {m}
+                    </li>
                   ))}
                 </ul>
-                <div className="mt-4 text-sm text-slate-400">Member since: {new Date(selected.createdAt ?? Date.now()).toLocaleDateString()}</div>
+                <div className="mt-4 text-sm text-slate-500">Member since: {new Date(selected.createdAt ?? Date.now()).toLocaleDateString()}</div>
               </div>
             </div>
           </div>
