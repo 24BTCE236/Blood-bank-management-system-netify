@@ -9,7 +9,6 @@ import {
   ChevronRight,
   ClipboardList,
   Droplets,
-  MapPin,
   Filter,
   HeartPulse,
   LayoutDashboard,
@@ -32,7 +31,6 @@ import FoundersManager from './components/FoundersManager';
 import FounderDashboard from './components/FounderDashboard';
 import DonorPublic from './components/DonorPublic';
 import AddDonor from './components/AddDonor';
-import AddressWithMap from './components/AddressWithMap';
 import {
   BloodGroup,
   bloodGroups,
@@ -172,6 +170,7 @@ const App = () => {
     publicRegisterDonor,
     createRequest,
     approveRequest,
+    rejectRequest,
     getCompatibleDonors,
   } = useBloodBank();
   const navigate = useNavigate();
@@ -215,8 +214,6 @@ const App = () => {
       document.documentElement.classList.remove('light');
     }
   }, [theme]);
-
-  
 
   useEffect(() => {
     const section = pathToSection(location.pathname);
@@ -370,6 +367,16 @@ const App = () => {
 
   const handleApprove = (requestId: string) => {
     const response = approveRequest(requestId);
+    if (!response.ok) {
+      setToast({ type: 'error', message: response.message });
+      return;
+    }
+
+    setToast({ type: 'success', message: response.message });
+  };
+
+  const handleReject = (requestId: string) => {
+    const response = rejectRequest(requestId);
     if (!response.ok) {
       setToast({ type: 'error', message: response.message });
       return;
@@ -970,6 +977,9 @@ const App = () => {
                             <button className="premium-button" onClick={() => handleApprove(request.id)}>
                               Approve & Dispatch
                             </button>
+                            <button className="premium-button-secondary" onClick={() => handleReject(request.id)}>
+                              Reject
+                            </button>
                             <button className="premium-button-secondary" onClick={() => setSelectedRequestId(request.id)}>
                               Open matcher
                             </button>
@@ -1105,12 +1115,7 @@ const App = () => {
                             </div>
                             <div>
                               <label className="mb-2 block text-xs uppercase tracking-[0.25em] text-slate-400">Address</label>
-                              <AddressWithMap
-                                ariaLabel="Donor address"
-                                value={donorForm.address}
-                                placeholder="City, ward, or full address"
-                                onChange={(v) => setDonorForm((current) => ({ ...current, address: v }))}
-                              />
+                              <input aria-label="Donor address" className="glass-input" value={donorForm.address} onChange={(event) => setDonorForm((current) => ({ ...current, address: event.target.value }))} placeholder="City, ward, or full address" />
                               {donorErrors.address ? <p className="mt-2 text-xs text-rose-300">{donorErrors.address}</p> : null}
                             </div>
                             <div className="rounded-3xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
@@ -1330,7 +1335,7 @@ const App = () => {
                           {requestErrors.units ? <p className="mt-2 text-xs text-rose-300">{requestErrors.units}</p> : null}
                         </div>
                       </div>
-                        <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="grid gap-4 sm:grid-cols-2">
                         <div>
                           <label className="mb-2 block text-xs uppercase tracking-[0.25em] text-slate-400">Priority</label>
                           <select aria-label="Request priority" className="glass-input" value={requestForm.priority} onChange={(event) => setRequestForm((current) => ({ ...current, priority: event.target.value as RequestFormState['priority'] }))}>
@@ -1339,12 +1344,7 @@ const App = () => {
                         </div>
                         <div>
                           <label className="mb-2 block text-xs uppercase tracking-[0.25em] text-slate-400">Location</label>
-                          <AddressWithMap
-                            ariaLabel="Hospital location"
-                            value={requestForm.location}
-                            placeholder="City / ward"
-                            onChange={(v) => setRequestForm((current) => ({ ...current, location: v }))}
-                          />
+                          <input className="glass-input" value={requestForm.location} onChange={(event) => setRequestForm((current) => ({ ...current, location: event.target.value }))} placeholder="City / ward" />
                           {requestErrors.location ? <p className="mt-2 text-xs text-rose-300">{requestErrors.location}</p> : null}
                         </div>
                       </div>
@@ -1404,6 +1404,9 @@ const App = () => {
                             <div className="mt-4 flex flex-wrap gap-3">
                               <button className={`premium-button ${!activeFounder ? 'cursor-not-allowed opacity-60' : ''}`} onClick={() => handleApprove(request.id)} disabled={!activeFounder || !canDispatch}>
                                 Approve & Dispatch
+                              </button>
+                              <button className={`premium-button-secondary ${!activeFounder ? 'cursor-not-allowed opacity-60' : ''}`} onClick={() => handleReject(request.id)} disabled={!activeFounder}>
+                                Reject
                               </button>
                               <button className="premium-button-secondary" onClick={() => setSelectedRequestId(request.id)}>
                                 Smart matcher

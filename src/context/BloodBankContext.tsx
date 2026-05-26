@@ -25,6 +25,7 @@ type BloodBankContextValue = BloodBankState & {
   publicRegisterDonor: (donor: Omit<Donor, 'id' | 'createdAt' | 'active'>) => { ok: boolean; message: string };
   createRequest: (request: Omit<BloodRequest, 'id' | 'createdAt' | 'status' | 'matchedDonorIds'>) => { ok: boolean; message: string };
   approveRequest: (requestId: string) => { ok: boolean; message: string };
+  rejectRequest: (requestId: string) => { ok: boolean; message: string };
   getCompatibleDonors: (requestGroup: BloodGroup) => Donor[];
   addInventory: (group: BloodGroup, units: number) => { ok: boolean; message: string };
   updateDonor: (id: string, updates: Partial<Donor>) => { ok: boolean; message: string };
@@ -392,6 +393,24 @@ export const BloodBankProvider = ({ children }: { children: React.ReactNode }) =
     return { ok: true, message: 'Inventory dispatched and request completed.' };
   };
 
+  const rejectRequest = (requestId: string) => {
+    if (!canLeadOperations) {
+      return { ok: false, message: 'Founder sign-in required to lead operations.' };
+    }
+
+    const request = state.requests.find((entry) => entry.id === requestId);
+    if (!request) {
+      return { ok: false, message: 'Request not found.' };
+    }
+
+    setState((current) => ({
+      ...current,
+      requests: current.requests.map((entry) => (entry.id === requestId ? { ...entry, status: 'rejected' } : entry)),
+    }));
+
+    return { ok: true, message: 'Request rejected.' };
+  };
+
   const addInventory: BloodBankContextValue['addInventory'] = (group, units) => {
     if (!canLeadOperations) {
       return { ok: false, message: 'Founder sign-in required to lead operations.' };
@@ -448,6 +467,7 @@ export const BloodBankProvider = ({ children }: { children: React.ReactNode }) =
       publicRegisterDonor,
       createRequest,
       approveRequest,
+      rejectRequest,
       addInventory,
         updateDonor,
       getCompatibleDonors,

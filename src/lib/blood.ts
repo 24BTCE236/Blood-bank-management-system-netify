@@ -46,7 +46,7 @@ export type BloodRequest = {
   location: string;
   contact: string;
   note: string;
-  status: 'pending' | 'approved' | 'dispatched' | 'fulfilled';
+  status: 'pending' | 'approved' | 'dispatched' | 'fulfilled' | 'rejected';
   createdAt: string;
   matchedDonorIds: string[];
 };
