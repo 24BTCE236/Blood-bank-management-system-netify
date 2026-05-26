@@ -14,6 +14,10 @@ type Donor = {
   bloodGroup: string;
   contact?: string;
   lastDonationDate?: string;
+  medicalEligibility?: string[];
+  createdAt?: string;
+  lat?: number;
+  lng?: number;
 };
 
 const AddressWithMap: React.FC<{ donors: Donor[]; height?: number }> = ({ donors, height = 420 }) => {
@@ -164,24 +168,60 @@ const AddressWithMap: React.FC<{ donors: Donor[]; height?: number }> = ({ donors
     <>
       <div className="relative">
         <div ref={mapRef} style={{ width: '100%', height, borderRadius: 12, overflow: 'hidden' }} />
-        <div className="absolute right-3 top-3 z-40 rounded-full bg-white/80 px-3 py-1 text-sm text-slate-800">
-          Geocode: {geocodedCount}/{donors.length} • Processed: {processed}/{donors.length}
+
+        <div className="absolute left-4 top-4 z-40 w-80 rounded-xl bg-white/6 backdrop-blur-md p-2">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <svg className="w-5 h-5 text-rose-400" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2v20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              <div>
+                <div className="text-xs text-slate-300">Geocoding donors</div>
+                <div className="text-sm font-semibold text-white">{geocodedCount} geocoded • {processed} processed</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {processed < donors.length ? (
+                <svg className="w-5 h-5 animate-spin text-white/90" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+              ) : (
+                <svg className="w-5 h-5 text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-2 h-2 w-full rounded-full bg-white/10 overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-rose-500 via-rose-400 to-amber-400 transition-all" style={{ width: `${Math.round((processed / Math.max(1, donors.length)) * 100)}%` }} />
+          </div>
         </div>
       </div>
       {selected ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setSelected(null)} />
-          <div className="relative z-10 w-[90%] max-w-2xl rounded-xl bg-white p-6 text-slate-900">
-            <div className="flex items-start justify-between">
-              <div>
-                <h3 className="text-lg font-semibold">{selected.name}</h3>
-                <div className="text-sm text-slate-600">{selected.bloodGroup} · {selected.contact}</div>
+          <div className="relative z-10 w-[92%] max-w-3xl rounded-2xl bg-white p-6 text-slate-900 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-lg bg-gradient-to-br from-rose-500 to-amber-400 flex items-center justify-center text-white font-bold text-lg">{selected.name.split(' ').map(n=>n[0]).slice(0,2).join('')}</div>
+                <div>
+                  <h3 className="text-xl font-semibold">{selected.name}</h3>
+                  <div className="text-sm text-slate-600">{selected.bloodGroup} · {selected.contact}</div>
+                  <div className="text-xs text-slate-400">Last donation: {selected.lastDonationDate ?? 'N/A'}</div>
+                </div>
               </div>
-              <button className="ml-4 p-2" onClick={() => setSelected(null)}>Close</button>
+              <div className="flex items-center gap-2">
+                <button className="premium-button" onClick={() => setSelected(null)}>Allow donation</button>
+                <button className="premium-button-secondary" onClick={() => setSelected(null)}>Edit</button>
+              </div>
             </div>
             <div className="mt-4 text-sm text-slate-700">{selected.address}</div>
-            <div className="mt-4">
-              <div style={{ width: '100%', height: 240, borderRadius: 8, overflow: 'hidden' }} id="modal-map" />
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div style={{ height: 240, borderRadius: 8, overflow: 'hidden' }} id="modal-map" />
+              <div className="p-4 bg-white/5 rounded-lg">
+                <h4 className="text-sm font-semibold text-white">Medical eligibility</h4>
+                <ul className="mt-2 text-sm text-slate-300 space-y-1">
+                  {(selected.medicalEligibility ?? []).map((m, i) => (
+                    <li key={i} className="soft-chip">{m}</li>
+                  ))}
+                </ul>
+                <div className="mt-4 text-sm text-slate-400">Member since: {new Date(selected.createdAt ?? Date.now()).toLocaleDateString()}</div>
+              </div>
             </div>
           </div>
         </div>
