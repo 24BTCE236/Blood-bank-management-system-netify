@@ -27,6 +27,9 @@ export type Donor = {
   name: string;
   age: number;
   address?: string;
+  // optional geocoded coordinates
+  lat?: number;
+  lng?: number;
   bloodGroup: BloodGroup;
   weight: number;
   lastDonationDate: string;
