@@ -72,87 +72,69 @@ const makeInventory = () =>
   }, {} as BloodBankState['inventory']);
 
 const donors = (() => {
-  const base = [
-    {
-      id: 'donor-1',
-      name: 'Aarav Mehta',
-      age: 29,
-      bloodGroup: 'O+' as BloodGroup,
-      weight: 71,
-      lastDonationDate: '2025-09-12',
-      contact: '+91 98765 43210',
-      medicalEligibility: ['No smoking', 'No fever', 'Healthy hemoglobin'],
-      active: true,
-      createdAt: '2026-04-18T10:20:00.000Z',
-      address: 'Hyderabad, Telangana',
-    },
-    {
-      id: 'donor-2',
-      name: 'Sahana Reddy',
-      age: 34,
-      bloodGroup: 'A+' as BloodGroup,
-      weight: 63,
-      lastDonationDate: '2025-08-04',
-      contact: '+91 91234 56780',
-      medicalEligibility: ['No antibiotics', 'No chronic illness', 'Healthy hemoglobin'],
-      active: true,
-      createdAt: '2026-04-19T12:20:00.000Z',
-      address: 'Bengaluru, Karnataka',
-    },
-    {
-      id: 'donor-3',
-      name: 'Imran Khan',
-      age: 41,
-      bloodGroup: 'B+' as BloodGroup,
-      weight: 77,
-      lastDonationDate: '2025-10-30',
-      contact: '+91 99880 77110',
-      medicalEligibility: ['No recent surgery', 'No vaccination in last 7 days', 'No fever'],
-      active: true,
-      createdAt: '2026-04-20T07:12:00.000Z',
-      address: 'Mumbai, Maharashtra',
-    },
-  ];
+  const firstNames = ['Aarav','Sahana','Imran','Riya','Karan','Priya','Rahul','Ananya','Vikram','Meera','Arjun','Sneha','Rohit','Isha','Sameer','Nidhi','Aditya','Sara','Rakesh','Pooja','Vimal','Divya','Kavya','Deepak','Anil','Maya','Tarun','Leena','Manish','Rohan'];
+  const lastNames = ['Mehta','Reddy','Khan','Sharma','Patel','Gupta','Nair','Iyer','Das','Bose','Saxena','Nair','Rao','Joshi','Kumar','Singh','Chowdhury','Desai','Menon','Thomas'];
+  const streets = ['MG Road','Church Street','Brigade Road','Indira Nagar','Koramangala','Salt Lake','Colaba','Bandra West','Jayanagar','Powai','Kondapur','T Nagar','Noida Sector 18','HSR Layout','Gachibowli'];
+  const cities = ['Mumbai','Bengaluru','Hyderabad','Chennai','Kolkata','Pune','Ahmedabad','Jaipur','Lucknow','Thiruvananthapuram','Kochi','Bhopal'];
+  const medicalPool = ['No fever','No antibiotics','No recent surgery','Healthy hemoglobin','No smoking','No alcohol in last 24 hours','No chronic illness','No vaccination in last 7 days'];
 
-  const first = ['Rahul', 'Priya', 'Karthik', 'Ananya', 'Vikram', 'Meera', 'Rohan', 'Sneha', 'Aditya', 'Isha', 'Dev', 'Nisha', 'Arjun', 'Pooja', 'Sameer', 'Maya', 'Veda', 'Kiran', 'Leena', 'Siddharth', 'Rhea', 'Tara', 'Kabir', 'Naina', 'Omar', 'Zara', 'Liam', 'Noah', 'Emma', 'Olivia'];
-  const last = ['Sharma', 'Singh', 'Iyer', 'Patel', 'Gupta', 'Rao', 'Khan', 'Nair', 'Das', 'Chowdhury', 'Menon', 'Kapoor', 'Bose', 'Mehta', 'Reddy', 'Bhat', 'Joshi', 'Kumar', 'Verma', 'Ghosh'];
-  const cities = ['Delhi', 'Mumbai', 'Bengaluru', 'Hyderabad', 'Chennai', 'Kolkata', 'Pune', 'Ahmedabad', 'Surat', 'Jaipur', 'Lucknow', 'Kanpur', 'Nagpur', 'Indore', 'Thiruvananthapuram'];
-  const elig = ['No fever', 'No antibiotics', 'No recent surgery', 'No smoking', 'Healthy hemoglobin', 'No chronic illness', 'No alcohol in last 24 hours'];
-  const bloods = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] as const;
+  const rand = (seed: number) => {
+    // simple LCG for deterministic pseudo-randomness per index
+    let s = seed;
+    return () => {
+      s = (s * 1664525 + 1013904223) % 0x100000000;
+      return s / 0x100000000;
+    };
+  };
 
-  const needed = Math.max(0, 100 - base.length);
-  const generated: any[] = [];
-  for (let i = 0; i < needed; i++) {
-    const idx = i + base.length + 1;
-    const f = first[i % first.length];
-    const l = last[i % last.length];
-    const name = `${f} ${l}`;
-    const age = 18 + (i % 48); // 18-65
-    const weight = 50 + (i % 51); // 50-100
-    const bloodGroup = bloods[i % bloods.length];
-    const daysAgo = 100 + (i % 800); // ensure many are past 90 days
-    const lastDonationDate = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-    const contact = `+91 9${String(100000000 + idx).slice(1)}`;
-    const medicalEligibility = [elig[i % elig.length], elig[(i + 2) % elig.length], elig[(i + 4) % elig.length]];
-    const address = `${cities[i % cities.length]}, India`;
-    const createdAt = new Date(Date.now() - (i + 10) * 24 * 60 * 60 * 1000).toISOString();
+  const makeDatePast = (daysAgo: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() - daysAgo);
+    return d.toISOString().slice(0,10);
+  };
 
-    generated.push({
-      id: `donor-${idx}`,
+  const list: any[] = [];
+  const total = 100;
+  for (let i = 1; i <= total; i++) {
+    const r = rand(i);
+    const fn = firstNames[Math.floor(r()*firstNames.length)];
+    const ln = lastNames[Math.floor(r()*lastNames.length)];
+    const name = `${fn} ${ln}`;
+    const age = 18 + Math.floor(r()*48); // 18-65
+    const weight = 50 + Math.floor(r()*50); // 50-99
+    const street = streets[Math.floor(r()*streets.length)];
+    const city = cities[Math.floor(r()*cities.length)];
+    const address = `${Math.floor(r()*200)+1}, ${street}, ${city}`;
+    const bloodGroup = (['A+','A-','B+','B-','AB+','AB-','O+','O-'] as BloodGroup[])[Math.floor(r()*8)];
+    const daysSince = Math.floor(r()*1000) + 1;
+    const lastDonationDate = makeDatePast(daysSince);
+    // pick 3 medical eligibility items
+    const eligible: string[] = [];
+    const pool = [...medicalPool];
+    while (eligible.length < 3 && pool.length > 0) {
+      const idx = Math.floor(r()*pool.length);
+      eligible.push(pool.splice(idx,1)[0]);
+    }
+    const id = `donor-${i.toString().padStart(3,'0')}`;
+    const createdAt = new Date(Date.now() - i * 1000 * 60 * 60).toISOString();
+    const contact = `+91 9${Math.floor(100000000 + r()*900000000)}`;
+
+    list.push({
+      id,
       name,
       age,
-      bloodGroup: bloodGroup as BloodGroup,
+      bloodGroup,
       weight,
       lastDonationDate,
       contact,
-      medicalEligibility,
+      medicalEligibility: eligible,
       active: true,
       createdAt,
       address,
     });
   }
 
-  return [...base, ...generated];
+  return list;
 })();
 
 const requests = [
