@@ -148,6 +148,6 @@ export const createSeedState = (): BloodBankState => ({
   donors,
   requests,
   livesSaved: Math.round((Object.values(inventorySeed).reduce((sum, liters) => sum + liters, 0) / bloodBagSizeLiters) * 2),
-  activeView: 'overview',
+  activeView: 'donors',
   theme: 'dark',
 });

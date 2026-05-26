@@ -217,7 +217,9 @@ const App = () => {
   useEffect(() => {
     const section = pathToSection(location.pathname);
     if (!section && location.pathname !== '/founder-dashboard') {
-      navigate(sectionToPath('overview'), { replace: true });
+      // If the user lands on the root path `/`, prefer the saved active view from
+      // context (so e.g. `donors` can appear by default). Fall back to `overview`.
+      navigate(sectionToPath(activeView ?? 'overview'), { replace: true });
       return;
     }
 
@@ -307,7 +309,7 @@ const App = () => {
     const payload = {
       name: mergedForm.name.trim(),
       age: Number(mergedForm.age),
-      bloodGroup: mergedForm.bloodGroup,
+      bloodGroup: mergedForm.bloodGroup as BloodGroup,
       weight: Number(mergedForm.weight),
       lastDonationDate: mergedForm.lastDonationDate,
       contact: mergedForm.contact.trim(),
@@ -474,7 +476,7 @@ const App = () => {
         const payload = {
           name: merged.name.trim(),
           age: Number(merged.age),
-          bloodGroup: merged.bloodGroup,
+          bloodGroup: merged.bloodGroup as BloodGroup,
           weight: Number(merged.weight),
           lastDonationDate: merged.lastDonationDate,
           contact: merged.contact.trim(),

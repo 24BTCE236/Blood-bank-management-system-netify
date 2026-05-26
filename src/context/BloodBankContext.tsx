@@ -58,7 +58,6 @@ const safeRead = (): BloodBankState => {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(seed));
       return seed;
     }
-
     const parsed = JSON.parse(raw) as BloodBankState;
     if (!parsed?.inventory || !parsed?.donors || !parsed?.requests) {
       throw new Error('Invalid state');
@@ -68,12 +67,29 @@ const safeRead = (): BloodBankState => {
     const founders = Array.isArray(parsed.founders) ? mergeSeedFounders(parsed.founders, seed.founders) : seed.founders;
     const currentFounderExists = founders.some((founder) => founder.id === parsed.currentFounderId);
 
-    return {
+    // Migration: if the stored state has the legacy default (`overview`) and the
+    // seed now prefers `donors`, migrate the stored activeView so new systems
+    // and imported state reflect the donor-first default. This avoids the
+    // situation where some clients still land on `overview` due to old saved
+    // state while others show `donors`.
+    const storedActiveView = parsed.activeView ?? seed.activeView;
+    const migratedActiveView = parsed.activeView === 'overview' && seed.activeView === 'donors' ? seed.activeView : storedActiveView;
+
+    const merged = {
       ...seed,
       ...parsed,
       founders,
       currentFounderId: currentFounderExists ? parsed.currentFounderId ?? null : null,
-    };
+      activeView: migratedActiveView,
+    } as BloodBankState;
+
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+    } catch {
+      // ignore storage write failures
+    }
+
+    return merged;
   } catch {
     const seed = buildSeedState();
     try {
