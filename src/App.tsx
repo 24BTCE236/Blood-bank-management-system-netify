@@ -1224,12 +1224,22 @@ const App = () => {
                   </div>
 
                   <form className="glass-panel rounded-[2rem] p-6 lg:p-8" onSubmit={handleRequestSubmit}>
-                    <div className="mb-5 flex items-center justify-between gap-4">
+                    <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                       <div>
                         <div className="text-sm font-medium text-slate-200">Active donors</div>
                         <div className="text-xs text-slate-400">Search, filter, and review donor readiness</div>
                       </div>
-                      <Filter className="h-5 w-5 text-blood-300" />
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
+                        <span className="soft-chip">
+                          <Users className="h-3.5 w-3.5 text-rose-300" />
+                          {filteredDonors.length} visible
+                        </span>
+                        <span className="soft-chip">
+                          <ShieldCheck className="h-3.5 w-3.5 text-emerald-300" />
+                          {filteredDonors.filter((donor) => donorsMatchRequest(donor, donor.bloodGroup)).length} eligible
+                        </span>
+                        <Filter className="h-5 w-5 text-blood-300" />
+                      </div>
                     </div>
 
                     <div className="grid gap-3 md:grid-cols-[1.25fr_0.75fr]">
@@ -1248,9 +1258,9 @@ const App = () => {
                       </select>
                     </div>
 
-                    <div className="mt-5 hidden overflow-hidden rounded-[1.75rem] border border-white/10 lg:block">
+                    <div className="mt-5 hidden overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/[0.04] shadow-[0_18px_50px_rgba(15,23,42,0.2)] lg:block">
                       <table className="min-w-full divide-y divide-white/10 text-left text-sm">
-                        <thead className="bg-white/5 text-xs uppercase tracking-[0.25em] text-slate-400">
+                        <thead className="bg-white/5 text-xs uppercase tracking-[0.25em] text-slate-300">
                           <tr>
                             <th className="px-4 py-3">Donor</th>
                             <th className="px-4 py-3">Blood</th>
@@ -1261,16 +1271,16 @@ const App = () => {
                         </thead>
                         <tbody className="divide-y divide-white/10">
                           {filteredDonors.map((donor) => (
-                            <tr key={donor.id} className="bg-white/5 transition hover:bg-white/10">
+                            <tr key={donor.id} className="group bg-white/5 transition hover:bg-white/10">
                               <td className="px-4 py-4">
-                                <div className="font-medium text-white">{donor.name}</div>
+                                <div className="font-medium text-white transition group-hover:text-rose-100">{donor.name}</div>
                                 <div className="text-xs text-slate-400">{donor.contact}</div>
                               </td>
                               <td className="px-4 py-4 text-slate-200">{donor.bloodGroup}</td>
                               <td className="px-4 py-4 text-slate-200">{donor.address ?? '-'}</td>
                               <td className="px-4 py-4 text-slate-200">{donor.lastDonationDate}</td>
                               <td className="px-4 py-4">
-                                <span className="soft-chip">
+                                <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${donorsMatchRequest(donor, donor.bloodGroup) ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200' : 'border-amber-400/30 bg-amber-400/10 text-amber-200'}`}>
                                   <ShieldCheck className="h-4 w-4 text-emerald-300" />
                                   {donorsMatchRequest(donor, donor.bloodGroup) ? 'Eligible' : 'Review'}
                                 </span>
@@ -1290,19 +1300,34 @@ const App = () => {
 
                     <div className="mt-5 grid gap-3 lg:hidden">
                       {filteredDonors.map((donor) => (
-                        <div key={donor.id} className="rounded-[1.75rem] border border-white/10 bg-white/5 p-4">
+                        <div key={donor.id} className="rounded-[1.75rem] border border-white/10 bg-gradient-to-br from-white/10 to-white/[0.04] p-4 shadow-[0_12px_32px_rgba(15,23,42,0.16)]">
                           <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <div className="text-base font-semibold text-white">{donor.name}</div>
-                              <div className="text-xs text-slate-400">{donor.contact}</div>
+                            <div className="flex items-start gap-3">
+                              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-500 to-amber-400 text-sm font-bold text-white shadow-lg shadow-rose-500/20">
+                                {donor.name
+                                  .split(' ')
+                                  .map((part) => part[0] ?? '')
+                                  .slice(0, 2)
+                                  .join('')}
+                              </div>
+                              <div>
+                                <div className="text-base font-semibold text-white">{donor.name}</div>
+                                <div className="text-xs text-slate-400">{donor.contact}</div>
+                              </div>
                             </div>
                             <span className="soft-chip">{donor.bloodGroup}</span>
                           </div>
-                            <div className="mt-3 grid gap-2 text-sm text-slate-300 sm:grid-cols-2">
+                          <div className="mt-3 grid gap-2 text-sm text-slate-300 sm:grid-cols-2">
                             <div>Age: {donor.age}</div>
                             <div>Weight: {donor.weight} kg</div>
-                            <div>Last donation: {donor.lastDonationDate}</div>
+                            <div className="sm:col-span-2">Last donation: {donor.lastDonationDate}</div>
                             <div className="sm:col-span-2">Address: {donor.address ?? '-'}</div>
+                          </div>
+                          <div className="mt-4 flex items-center justify-end">
+                            <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${donorsMatchRequest(donor, donor.bloodGroup) ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200' : 'border-amber-400/30 bg-amber-400/10 text-amber-200'}`}>
+                              <ShieldCheck className="h-3.5 w-3.5" />
+                              {donorsMatchRequest(donor, donor.bloodGroup) ? 'Eligible' : 'Review'}
+                            </span>
                           </div>
                         </div>
                       ))}
