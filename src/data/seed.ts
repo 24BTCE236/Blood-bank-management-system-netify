@@ -71,44 +71,89 @@ const makeInventory = () =>
     return accumulator;
   }, {} as BloodBankState['inventory']);
 
-const donors = [
-  {
-    id: 'donor-1',
-    name: 'Aarav Mehta',
-    age: 29,
-    bloodGroup: 'O+' as BloodGroup,
-    weight: 71,
-    lastDonationDate: '2025-09-12',
-    contact: '+91 98765 43210',
-    medicalEligibility: ['No smoking', 'No fever', 'Healthy hemoglobin'],
-    active: true,
-    createdAt: '2026-04-18T10:20:00.000Z',
-  },
-  {
-    id: 'donor-2',
-    name: 'Sahana Reddy',
-    age: 34,
-    bloodGroup: 'A+' as BloodGroup,
-    weight: 63,
-    lastDonationDate: '2025-08-04',
-    contact: '+91 91234 56780',
-    medicalEligibility: ['No antibiotics', 'No chronic illness'],
-    active: true,
-    createdAt: '2026-04-19T12:20:00.000Z',
-  },
-  {
-    id: 'donor-3',
-    name: 'Imran Khan',
-    age: 41,
-    bloodGroup: 'B+' as BloodGroup,
-    weight: 77,
-    lastDonationDate: '2025-10-30',
-    contact: '+91 99880 77110',
-    medicalEligibility: ['No recent surgery', 'No vaccination in last 7 days'],
-    active: true,
-    createdAt: '2026-04-20T07:12:00.000Z',
-  },
-];
+const donors = (() => {
+  const base = [
+    {
+      id: 'donor-1',
+      name: 'Aarav Mehta',
+      age: 29,
+      bloodGroup: 'O+' as BloodGroup,
+      weight: 71,
+      lastDonationDate: '2025-09-12',
+      contact: '+91 98765 43210',
+      medicalEligibility: ['No smoking', 'No fever', 'Healthy hemoglobin'],
+      active: true,
+      createdAt: '2026-04-18T10:20:00.000Z',
+      address: 'Hyderabad, Telangana',
+    },
+    {
+      id: 'donor-2',
+      name: 'Sahana Reddy',
+      age: 34,
+      bloodGroup: 'A+' as BloodGroup,
+      weight: 63,
+      lastDonationDate: '2025-08-04',
+      contact: '+91 91234 56780',
+      medicalEligibility: ['No antibiotics', 'No chronic illness', 'Healthy hemoglobin'],
+      active: true,
+      createdAt: '2026-04-19T12:20:00.000Z',
+      address: 'Bengaluru, Karnataka',
+    },
+    {
+      id: 'donor-3',
+      name: 'Imran Khan',
+      age: 41,
+      bloodGroup: 'B+' as BloodGroup,
+      weight: 77,
+      lastDonationDate: '2025-10-30',
+      contact: '+91 99880 77110',
+      medicalEligibility: ['No recent surgery', 'No vaccination in last 7 days', 'No fever'],
+      active: true,
+      createdAt: '2026-04-20T07:12:00.000Z',
+      address: 'Mumbai, Maharashtra',
+    },
+  ];
+
+  const first = ['Rahul', 'Priya', 'Karthik', 'Ananya', 'Vikram', 'Meera', 'Rohan', 'Sneha', 'Aditya', 'Isha', 'Dev', 'Nisha', 'Arjun', 'Pooja', 'Sameer', 'Maya', 'Veda', 'Kiran', 'Leena', 'Siddharth', 'Rhea', 'Tara', 'Kabir', 'Naina', 'Omar', 'Zara', 'Liam', 'Noah', 'Emma', 'Olivia'];
+  const last = ['Sharma', 'Singh', 'Iyer', 'Patel', 'Gupta', 'Rao', 'Khan', 'Nair', 'Das', 'Chowdhury', 'Menon', 'Kapoor', 'Bose', 'Mehta', 'Reddy', 'Bhat', 'Joshi', 'Kumar', 'Verma', 'Ghosh'];
+  const cities = ['Delhi', 'Mumbai', 'Bengaluru', 'Hyderabad', 'Chennai', 'Kolkata', 'Pune', 'Ahmedabad', 'Surat', 'Jaipur', 'Lucknow', 'Kanpur', 'Nagpur', 'Indore', 'Thiruvananthapuram'];
+  const elig = ['No fever', 'No antibiotics', 'No recent surgery', 'No smoking', 'Healthy hemoglobin', 'No chronic illness', 'No alcohol in last 24 hours'];
+  const bloods = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] as const;
+
+  const needed = Math.max(0, 100 - base.length);
+  const generated: any[] = [];
+  for (let i = 0; i < needed; i++) {
+    const idx = i + base.length + 1;
+    const f = first[i % first.length];
+    const l = last[i % last.length];
+    const name = `${f} ${l}`;
+    const age = 18 + (i % 48); // 18-65
+    const weight = 50 + (i % 51); // 50-100
+    const bloodGroup = bloods[i % bloods.length];
+    const daysAgo = 100 + (i % 800); // ensure many are past 90 days
+    const lastDonationDate = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const contact = `+91 9${String(100000000 + idx).slice(1)}`;
+    const medicalEligibility = [elig[i % elig.length], elig[(i + 2) % elig.length], elig[(i + 4) % elig.length]];
+    const address = `${cities[i % cities.length]}, India`;
+    const createdAt = new Date(Date.now() - (i + 10) * 24 * 60 * 60 * 1000).toISOString();
+
+    generated.push({
+      id: `donor-${idx}`,
+      name,
+      age,
+      bloodGroup: bloodGroup as BloodGroup,
+      weight,
+      lastDonationDate,
+      contact,
+      medicalEligibility,
+      active: true,
+      createdAt,
+      address,
+    });
+  }
+
+  return [...base, ...generated];
+})();
 
 const requests = [
   {
