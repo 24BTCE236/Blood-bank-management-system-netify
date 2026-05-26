@@ -1,93 +1,85 @@
-import React, { useEffect, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
-import { MapPin } from 'lucide-react';
+import React, { useEffect, useRef } from 'react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import 'leaflet.markercluster/dist/MarkerCluster.css';
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
+import 'leaflet.markercluster';
 
-type AddressWithMapProps = {
-  value: string;
-  onChange: (v: string) => void;
-  ariaLabel?: string;
-  placeholder?: string;
+type Donor = {
+  id: string;
+  name: string;
+  address?: string;
+  bloodGroup: string;
+  contact?: string;
+  lastDonationDate?: string;
 };
 
-const AddressWithMap: React.FC<AddressWithMapProps> = ({ value, onChange, ariaLabel = 'Address', placeholder = '' }) => {
-  const [showPreview, setShowPreview] = useState(false);
-  const [previewSrc, setPreviewSrc] = useState('');
-
-  const encoded = encodeURIComponent((value || '').trim());
+const AddressWithMap: React.FC<{ donors: Donor[]; height?: number }> = ({ donors, height = 420 }) => {
+  const mapRef = useRef<HTMLDivElement | null>(null);
+  const leafletMap = useRef<L.Map | null>(null);
 
   useEffect(() => {
-    if (!encoded) return;
-    const src = `https://maps.google.com/maps?q=${encoded}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
-    setPreviewSrc(src);
-  }, [encoded]);
+    if (!mapRef.current) return;
 
-  const openSearch = () => {
-    if (!value || !value.trim()) return;
-    const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(value.trim())}`;
-    window.open(url, '_blank', 'noopener,noreferrer');
-  };
+    // create map once
+    if (!leafletMap.current) {
+      leafletMap.current = L.map(mapRef.current, {
+        center: [20.5937, 78.9629], // India center
+        zoom: 5,
+      });
 
-  const togglePreview = () => {
-    if (!value || !value.trim()) {
-      setShowPreview(false);
-      return;
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
+      }).addTo(leafletMap.current);
     }
-    setShowPreview((s) => !s);
-  };
 
-  return (
-    <div className="space-y-2">
-      <div className="relative">
-        <input
-          aria-label={ariaLabel}
-          className="glass-input pr-32"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-        />
-        <div className="absolute right-2 top-1/2 flex -translate-y-1/2 gap-2">
-          <button
-            type="button"
-            onClick={togglePreview}
-            className="soft-chip"
-            aria-pressed={showPreview}
-          >
-            Preview Location
-          </button>
-          <button
-            type="button"
-            onClick={openSearch}
-            className="premium-button-secondary flex items-center gap-2"
-          >
-            <MapPin className="h-4 w-4" />
-            Locate on Map
-          </button>
-        </div>
-      </div>
+    const map = leafletMap.current;
 
-      <AnimatePresence>
-        {showPreview && previewSrc ? (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.28 }}
-            className="glass-panel overflow-hidden rounded-xl border border-white/10 p-0"
-          >
-            <div className="h-56 w-full sm:h-72">
-              <iframe
-                title="Map preview"
-                src={previewSrc}
-                className="h-full w-full rounded-xl border-0"
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-              />
-            </div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-    </div>
-  );
+    // clear existing marker clusters
+    const layers = [] as L.Layer[];
+    map.eachLayer((layer) => {
+      // keep tile layers only
+      if (!(layer instanceof L.TileLayer)) layers.push(layer);
+    });
+    layers.forEach((l) => map.removeLayer(l));
+
+    // re-add tile layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors',
+    }).addTo(map);
+
+    // marker cluster group
+    // @ts-ignore - markerCluster plugin augments L
+    const markers = (L as any).markerClusterGroup ? (L as any).markerClusterGroup() : null;
+
+    donors.forEach((donor) => {
+      // naive geocoding fallback: try to extract a lat/lng from address if present (not available),
+      // instead we'll use a simple hash-to-latlng to spread markers deterministically for demo.
+      const seed = donor.id.split('-').pop() ? parseInt(donor.id.split('-').pop() || '1', 10) : Math.floor(Math.random() * 1000);
+      const lat = 8 + (seed % 20) + (seed % 10) * 0.03;
+      const lng = 68 + (seed % 30) + (seed % 7) * 0.04;
+      const marker = L.marker([lat, lng]);
+      marker.bindPopup(`<strong>${donor.name}</strong><br/>${donor.bloodGroup}<br/>${donor.contact ?? ''}<br/>${donor.address ?? ''}`);
+      if (markers) markers.addLayer(marker);
+      else marker.addTo(map);
+    });
+
+    if (markers) {
+      markers.addTo(map);
+      // fit bounds
+      try {
+        const groupBounds = markers.getBounds();
+        if (groupBounds.isValid()) map.fitBounds(groupBounds.pad(0.1));
+      } catch {}
+    }
+
+    return () => {
+      // cleanup optional
+      // do not remove map instance to preserve tiles across re-renders
+    };
+  }, [donors]);
+
+  return <div ref={mapRef} style={{ width: '100%', height, borderRadius: 12, overflow: 'hidden' }} />;
 };
 
 export default AddressWithMap;

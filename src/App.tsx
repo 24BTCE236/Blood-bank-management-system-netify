@@ -31,6 +31,7 @@ import FoundersManager from './components/FoundersManager';
 import FounderDashboard from './components/FounderDashboard';
 import DonorPublic from './components/DonorPublic';
 import AddDonor from './components/AddDonor';
+import AddressWithMap from './components/AddressWithMap';
 import {
   BloodGroup,
   bloodGroups,
@@ -183,6 +184,7 @@ const App = () => {
   const [requestErrors, setRequestErrors] = useState<Partial<Record<keyof RequestFormState, string>>>({});
   const [donorSearch, setDonorSearch] = useState('');
   const [donorGroupFilter, setDonorGroupFilter] = useState<BloodGroup | 'All'>('All');
+  const [showDonorMap, setShowDonorMap] = useState(false);
   const [selectedRequestId, setSelectedRequestId] = useState<string>(() => requests[0]?.id ?? '');
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [confettiKey, setConfettiKey] = useState(0);
@@ -1207,6 +1209,19 @@ const App = () => {
                       </button>
                     </div>
                   </form>
+
+                  <div className="glass-panel rounded-[2rem] p-6 lg:p-8">
+                    <div className="mb-4 flex items-center justify-between">
+                      <div>
+                        <div className="text-sm font-medium text-slate-200">Donor map</div>
+                        <div className="text-xs text-slate-400">Clustered donor locations (demo coordinates)</div>
+                      </div>
+                      <button className="premium-button-secondary" onClick={() => setShowDonorMap((v) => !v)} type="button">
+                        {showDonorMap ? 'Hide map' : 'Show map'}
+                      </button>
+                    </div>
+                    {showDonorMap ? <AddressWithMap donors={filteredDonors.map((d) => ({ id: d.id, name: d.name, address: d.address ?? '', bloodGroup: d.bloodGroup, contact: d.contact, lastDonationDate: d.lastDonationDate }))} height={420} /> : null}
+                  </div>
 
                   <form className="glass-panel rounded-[2rem] p-6 lg:p-8" onSubmit={handleRequestSubmit}>
                     <div className="mb-5 flex items-center justify-between gap-4">
