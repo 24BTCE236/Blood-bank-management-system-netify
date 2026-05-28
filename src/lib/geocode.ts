@@ -31,8 +31,10 @@ export const cacheCoords = (address: string, geo: Geo) => {
 export const geocodeAddress = async (address: string): Promise<Geo | null> => {
   try {
     const encoded = encodeURIComponent(address);
-    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encoded}`;
-    const res = await fetch(url, { headers: { 'User-Agent': 'bbms-demo/1.0' } });
+    // Use the proxied path so local dev bypasses CORS via Vite devServer proxy.
+    // In production the proxy won't be present; direct requests may be blocked by CORS.
+    const url = `/nominatim/search?format=json&q=${encoded}`;
+    const res = await fetch(url);
     if (!res.ok) return null;
     const json = await res.json();
     if (Array.isArray(json) && json.length > 0) {
