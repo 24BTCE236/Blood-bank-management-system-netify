@@ -31,9 +31,9 @@ export const cacheCoords = (address: string, geo: Geo) => {
 export const geocodeAddress = async (address: string): Promise<Geo | null> => {
   try {
     const encoded = encodeURIComponent(address);
-    // Use the proxied path so local dev bypasses CORS via Vite devServer proxy.
-    // In production the proxy won't be present; direct requests may be blocked by CORS.
-    const url = `/nominatim/search?format=json&q=${encoded}`;
+    const url = import.meta.env.DEV
+      ? `/nominatim/search?format=json&q=${encoded}`
+      : `/.netlify/functions/geocode?query=${encoded}`;
     const res = await fetch(url);
     if (!res.ok) return null;
     const json = await res.json();
